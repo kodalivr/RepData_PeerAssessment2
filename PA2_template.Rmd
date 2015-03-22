@@ -1,0 +1,177 @@
+---
+title: "Economic and health impact of storms and sever weather"
+output:
+  html_document:
+    fig_caption: yes
+    keep_md: yes
+  pdf_document: default
+---
+
+## Synopsis
+
+Storms and Severe weather has serious economic and health impacts. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern. The purpose of this assignment was to determine which severe weather types have the greatest economic and health effects. Economic effects were operationalized as the degree of property and crop damage. Health effects were operationalized as number of fatalities and injuries.The data is composed by 37 variables, 7 of which seemed relevent to the analysis. Data will be cleansed, re-ordered and analyised to answer the below questions.
+
+1. Which types of events are most harmful with respect to population health?
+2. Which types of events have the greatest economic consequences 
+
+I analyzed data taken from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. The data was far from tidy and needed some initial preprocessing prior to the analysis.
+
+The report begins with initial data processing followed by a subsequent analysis with the most important results plotted (no more than three plots were permitted for this assignment). I end the report with results and briefly discuss their implications.
+
+In short, results revealed that hurricanes have the most significant economic impact, while tornadoes are the most deadly.
+
+
+## Data Processing
+
+Loading and preprocessing the data
+ 
+```{r, echo = TRUE}
+
+  if (!file.exists("storm.csv")) 
+  {
+      library(R.utils)
+      # unzip file
+      bunzip2("repdata_data_StormData.csv.bz2", "storm.csv", remove = FALSE)
+  }
+  
+   # Load the storm.csv file
+   storm <- read.csv("storm.csv")
+```
+
+Extracting the data contain weather event, health and economic impact data
+exploring the data contents
+
+```{r, echo = TRUE}
+   head(storm)
+```
+
+subset the data to health and economic impact analysis against weather
+event, there are 7 variables related to these questions:
+
+```{r, echo = TRUE}
+   storm <- data.frame(storm$EVTYPE, storm$FATALITIES, storm$INJURIES, storm$PROPDMG, storm$PROPDMGEXP, storm$CROPDMG, storm$CROPDMGEXP)
+```
+
+Data frame with just these 7 variables.
+
+EVTYPE as a measure of event type
+
+FATALITIES as a measure of harm to human health
+
+INJURIES as a measure of hram to human health
+
+PROPDMG as a measure of property damage and hence economic damanage 
+
+PROPDMGEXP as a measure of magnitude of property damage   
+
+CROPDMG as a measure of crop damage and hence a economic damage in USD
+
+CROPDMGEXP as a measure of magnitude of crop damage  
+
+
+Preparing the property damage data.
+
+Exploring the property exponent
+
+```{r, echo = TRUE}
+     
+   summary(storm)
+
+   # replace missing storm with 0's
+   storm$storm.FATALITIES[(storm$storm.FATALITIES == "")] <- 0
+   storm$storm.INJURIES[(storm$storm.INJURIES == "")] <- 0
+   storm$storm.PROPDMG[(storm$storm.PROPDMG == "")] <- 0
+   storm$storm.CROPDMG[(storm$storm.CROPDMG == "")] <- 0
+
+   storm$storm.PROPDMGEXP <- as.character(storm$storm.PROPDMGEXP)
+   storm$storm.CROPDMGEXP <- as.character(storm$storm.CROPDMGEXP)
+
+   # use a uniform numbers
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "")] <- 0
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "+") | (storm$storm.PROPDMGEXP == "-") | (storm$storm.PROPDMGEXP == "?")] <- 1
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "h") | (storm$storm.PROPDMGEXP == "H")] <- 2
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "k") | (storm$storm.PROPDMGEXP == "K")] <- 3
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "m") | (storm$storm.PROPDMGEXP == "M")] <- 6
+   storm$storm.PROPDMGEXP[(storm$storm.PROPDMGEXP == "B")] <- 9
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "")] <- 0
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "+") | (storm$storm.CROPDMGEXP == "-") | (storm$storm.CROPDMGEXP == "?")] <- 1
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "h") | (storm$storm.CROPDMGEXP == "H")] <- 2
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "k") | (storm$storm.CROPDMGEXP == "K")] <- 3
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "m") | (storm$storm.CROPDMGEXP == "M")] <- 6
+   storm$storm.CROPDMGEXP[(storm$storm.CROPDMGEXP == "B")] <- 9
+
+   # convert to integer
+   storm$storm.PROPDMGEXP <- as.integer(storm$storm.PROPDMGEXP)
+   storm$storm.CROPDMGEXP <- as.integer(storm$storm.CROPDMGEXP)
+
+   # Total Damage for each event
+   totalDamageUSD <- storm$storm.PROPDMG * 10^storm$storm.PROPDMGEXP + storm$storm.CROPDMG * 10^storm$storm.CROPDMGEXP
+   storm <- cbind(storm, totalDamageUSD)
+
+```
+
+Aggregate the data in order to prepare it for the results.
+Data will be aggregated (SUM) on Event Type level, the TOP 10 events will be then indentified
+
+```{r, echo = TRUE}
+
+   # Subsetting the data, keeping on the numeric values and the event type column
+   storm<-storm[,c(1,2,3,8)]
+
+   # Aggregate the data
+   aggstorm<-aggregate(. ~ storm.EVTYPE,data = storm,FUN=sum)
+
+   # Matrix containing only the Top 10 events are calculated
+   Fatalities<-head(aggstorm[order(aggstorm$storm.FATALITIES,decreasing=T),],10)
+   Injuries<-head(aggstorm[order(aggstorm$storm.INJURIES,decreasing=T),],10)
+   Damages<-head(aggstorm[order(aggstorm$totalDamageUSD,decreasing=T),],10)
+
+```
+
+## Results
+
+1.Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+The answer can give by plotting the TOP 10 events which have caused the highest number of Fatalities
+
+```{r, echo = TRUE}
+   
+   library("ggplot2")
+
+   Fatalities<-head(aggstorm[order(aggstorm$storm.FATALITIES,decreasing=T),],10)
+   ggplot(data = Fatalities, aes(x = Fatalities$storm.EVTYPE, y = Fatalities$storm.FATALITIES)) + geom_bar(stat = "identity") + 
+   theme(axis.text.x = element_text(angle = 90, hjust = 1)) + xlab("Event Type") + 
+   ylab("# of Fatalities") + ggtitle("NOAA Top 10: Highest Fatality Counts, 1950-2011")
+
+
+
+   Injuries<-head(aggstorm[order(aggstorm$storm.INJURIES,decreasing=T),],10)
+   ggplot(data = Injuries, aes(x = Injuries$storm.EVTYPE, y = Injuries$storm.INJURIES)) + geom_bar(stat = "identity") +  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + xlab("Event Type") +  ylab("# of Injuries") + ggtitle("NOAA Top 10: Highest Injuries Counts, 1950-2011")
+
+
+```
+
+In both cases Tornados are the most harmful events to the population
+
+```{r, echo = TRUE}
+   Fatalities[Fatalities$storm.EVTYPE=="TORNADO",c(1,2,3)]
+```
+
+2.Across the United States, which types of events have the greatest economic consequences?
+
+```{r, echo = TRUE}
+   ggplot(data = Damages, aes(x = Damages$storm.EVTYPE, y = Damages$totalDamageUSD)) + geom_bar(stat = "identity") + 
+   theme(axis.text.x = element_text(angle = 90, hjust = 1)) + xlab("Event Type") + 
+   ylab("Damages in USD") + ggtitle("NOAA Top 10: Most Expensive Type of Events, 1950-2011")
+
+```
+
+ FLOOD has caused about 150 Billions of damages in USD
+ 
+```{r, echo = TRUE}
+   Fatalities[Fatalities$storm.EVTYPE=="FLOOD",c(1,4)]
+```       
+
+## Summary
+ 
+ Conclusion of the data analysis is that Tornadoes are most harmful to popuulation health and floods have the greatest economic consequences.
